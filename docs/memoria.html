@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Biwenger · ¿A quién fichar hoy? — Memoria</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: #1f2933; font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 30pt; margin: 0 0 6px; color: #0b3d2e; line-height: 1.15; }
+  h2 { font-size: 16pt; color: #0b3d2e; border-bottom: 3px solid #1fa35b; padding-bottom: 4px; margin: 26px 0 10px; break-after: avoid; }
+  h3 { font-size: 12pt; color: #14532d; margin: 16px 0 6px; break-after: avoid; }
+  p { margin: 6px 0; }
+  code { font-family: Consolas, "Courier New", monospace; background: #eef4f0; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+  pre { font-family: Consolas, "Courier New", monospace; background: #0f1d17; color: #d7f5e3; padding: 10px 12px; border-radius: 6px; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt; break-inside: avoid; }
+  th { background: #0b3d2e; color: #fff; text-align: left; padding: 5px 7px; }
+  td { border-bottom: 1px solid #d5e3da; padding: 5px 7px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .portada { height: 255mm; display: flex; flex-direction: column; justify-content: center; break-after: page; }
+  .portada .sub { font-size: 15pt; color: #3d5a4c; margin-bottom: 30px; }
+  .portada .bloque { border-left: 6px solid #1fa35b; padding: 8px 16px; font-size: 11.5pt; }
+  .portada .bloque div { margin: 3px 0; }
+  .etiqueta { display: inline-block; background: #1fa35b; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 9pt; margin-right: 6px; }
+  .peligro { background: #fdecea; border-left: 4px solid #d93025; padding: 8px 12px; margin: 10px 0; break-inside: avoid; }
+  .etl { display: flex; gap: 8px; align-items: stretch; margin: 12px 0; break-inside: avoid; }
+  .etl .caja { flex: 1; border: 2px solid #1fa35b; border-radius: 8px; padding: 8px 10px; background: #f3fbf6; font-size: 9pt; }
+  .etl .caja b { display: block; font-size: 11pt; color: #0b3d2e; margin-bottom: 4px; }
+  .etl .flecha { align-self: center; font-size: 20pt; color: #1fa35b; }
+  .formula { text-align: center; font-size: 12pt; background: #eef4f0; padding: 8px; border-radius: 6px; margin: 8px 0; }
+  .pasos li { margin: 4px 0; }
+  .salto { break-before: page; }
+  .pie { color: #6b7c74; font-size: 8.5pt; margin-top: 24px; border-top: 1px solid #d5e3da; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<section class="portada">
+  <div><span class="etiqueta">EOI · Módulo de APIs</span><span class="etiqueta">Python · Jupyter</span><span class="etiqueta">ETL</span></div>
+  <h1>Biwenger · ¿A quién fichar hoy?</h1>
+  <div class="sub">Investigación de mercado y recomendador de fichajes para una liga fantasy a partir de la API de Biwenger</div>
+  <div class="bloque">
+    <div><b>Autor:</b> Gonzalo Velasco Toronjo</div>
+    <div><b>Repositorio:</b> github.com/guensovt/biwenger-fichajes</div>
+    <div><b>Fecha:</b> octubre de 2026</div>
+    <div><b>Entregables:</b> <code>analisis_biwenger.ipynb</code>, <code>biwenger_datos.py</code> y este documento</div>
+  </div>
+</section>
+
+<h2>1. Objetivo</h2>
+<p>En una liga de <b>Biwenger</b> (fantasy de LaLiga) hay cientos de jugadores: los del mercado diario y los de las plantillas de los rivales, que se pueden fichar pagando su <b>cláusula</b> cuando no está bloqueada. Revisarlos uno a uno cada día no es práctico.</p>
+<p>El proyecto <b>se conecta a la API de Biwenger</b>, descarga cada día el estado real de la liga y responde a una pregunta concreta: <b>¿qué jugadores me conviene fichar hoy?</b> Solo se proponen dos tipos de oportunidad:</p>
+<ul>
+  <li><b>Deportiva:</b> jugadores que puntuarían más que el peor de mi plantilla en su posición.</li>
+  <li><b>Económica:</b> jugadores cuyo valor de mercado sube con fuerza cada día (comprar y revender con beneficio).</li>
+</ul>
+<p>El resultado es una lista corta y explicada, en lugar de cientos de filas.</p>
+
+<h2>2. Fuente de datos: la API de Biwenger</h2>
+<p>Biwenger no publica una API oficial, pero su web consume una API REST en JSON. Se ha tomado como referencia el proyecto comunitario <code>pablopb3/biwenger-api</code> y se han verificado los endpoints inspeccionando las peticiones de la web con las herramientas de desarrollador del navegador.</p>
+<table>
+  <tr><th>Endpoint</th><th>Autenticación</th><th>Datos que aporta</th></tr>
+  <tr><td><code>/api/v2/account</code></td><td>Sí</td><td>Mis ligas, mi manager, competición, sistema de puntos y bloqueo para ejecutar cláusulas</td></tr>
+  <tr><td><code>/api/v2/market</code></td><td>Sí</td><td>Jugadores en venta (liga y otros managers) y mi saldo</td></tr>
+  <tr><td><code>/api/v2/league</code></td><td>Sí</td><td>Clasificación (managers) y reglas de cláusulas de la liga</td></tr>
+  <tr><td><code>/api/v2/user/{id}</code></td><td>Sí</td><td>Plantilla de cada manager, cláusulas y fechas de bloqueo</td></tr>
+  <tr><td><code>cf.biwenger.com/.../competitions/{c}/data</code></td><td>No</td><td>Catálogo: precio, variación diaria, puntos en casa/fuera, posiciones, estado</td></tr>
+  <tr><td><code>cf.biwenger.com/.../teams/{c}/{id}</code></td><td>No</td><td>Calendario de cada equipo con la dificultad de cada partido</td></tr>
+</table>
+<p>Las peticiones privadas requieren la cabecera <code>Authorization: Bearer …</code> de una sesión iniciada en la web. Cada ejecución hace unas 35 consultas, secuenciales y con pausas de 1 segundo.</p>
+
+<h2>3. Arquitectura: un proceso ETL</h2>
+<div class="etl">
+  <div class="caja"><b>1 · Extracción</b>Sesión cifrada → consultas HTTPS con <code>curl</code> → captura fechada en <code>capturas/FECHA_UTC/</code></div>
+  <div class="flecha">➜</div>
+  <div class="caja"><b>2 · Transformación</b>Validación, unión por ID, cláusulas y bloqueos en hora de Madrid, variación €/día</div>
+  <div class="flecha">➜</div>
+  <div class="caja"><b>3 · Modelo</b>Puntos esperados en los 3 próximos partidos y rating 0–100</div>
+  <div class="flecha">➜</div>
+  <div class="caja"><b>4 · Resultados</b>Resumen, oportunidades, mercado de hoy y ranking completo</div>
+</div>
+<p>El código de extracción está en el módulo <code>biwenger_datos.py</code>. El notebook <code>analisis_biwenger.ipynb</code> contiene las fases 2–4 con el código técnico plegado y explicaciones desplegables, para poder seguirlo de arriba abajo.</p>
+
+<h3>3.1 Extracción</h3>
+<ul>
+  <li><b>Detección automática:</b> con la sesión se consulta <code>/account</code>; de ahí salen la liga, el manager, la competición y el sistema de puntos. Así el mismo código sirve para cualquier usuario.</li>
+  <li><b>Sesión protegida:</b> el token se pide una sola vez en una entrada oculta y se guarda cifrado fuera del proyecto: DPAPI en Windows y llavero del sistema (<code>keyring</code>) en macOS/Linux. Nunca aparece en el código, en las salidas ni en la línea de comandos: se pasa a <code>curl</code> por la entrada estándar.</li>
+  <li><b>Lista de hosts permitidos:</b> solo <code>biwenger.as.com</code> y <code>cf.biwenger.com</code>; el token solo se envía al primero y no se siguen redirecciones.</li>
+  <li><b>Robustez:</b> los errores transitorios del servidor (404, 429, 5xx) se reintentan dos veces; si algo falla o una plantilla no cuadra con la clasificación, no se guarda una captura incompleta.</li>
+  <li><b>Trazabilidad:</b> cada ejecución crea una carpeta nueva con los JSON y la hora de cada consulta. El modo <code>"local"</code> permite repetir el análisis sin conexión.</li>
+</ul>
+
+<h3>3.2 Transformación</h3>
+<ul>
+  <li>Todos los datos se unen <b>por identificador</b>, nunca por nombre; los valores ausentes se marcan como «Sin datos», no como cero.</li>
+  <li><b>¿Cuándo se puede clausular?</b> Se toma la fecha más tardía de cuatro bloqueos: protección del jugador, fecha de compra + días de activación de la liga, cupo de cláusulas recibidas por el propietario y mi propio cupo de cláusulas ejecutadas. Se muestra «Ejecutable» o la fecha de desbloqueo en hora de Madrid.</li>
+  <li>Los jugadores con varias posiciones (por ejemplo, centrocampista/delantero) cuentan en todas ellas.</li>
+</ul>
+
+<h2 class="salto">4. Modelo de recomendación</h2>
+<h3>4.1 Puntos esperados</h3>
+<p>Para cada jugador se estiman los puntos de sus <b>3 próximos partidos</b> a partir de su media en casa o fuera según toque, suavizada para que un jugador con un solo partido bueno no domine, y ajustada por la dificultad del rival que da la propia API (0–100):</p>
+<div class="formula">ajuste rival = ± |media| × 0,004 × (50 − dificultad) &nbsp;&nbsp;(máximo ±20 %)</div>
+
+<h3>4.2 Rating 0–100</h3>
+<div class="formula">Rating = 40 % deportivo + 50 % económico + 10 % coste</div>
+<table>
+  <tr><th>Componente</th><th>Cálculo</th></tr>
+  <tr><td>Deportivo</td><td>Percentil de los puntos esperados frente a los jugadores de su posición</td></tr>
+  <tr><td>Económico</td><td>Media de los percentiles de la subida diaria en € y en %</td></tr>
+  <tr><td>Coste</td><td>Precio de entrada frente al valor de mercado (pagar el valor = 50)</td></tr>
+</table>
+
+<h3>4.3 Selección de oportunidades</h3>
+<table>
+  <tr><th>Tipo</th><th>Criterio (configurable)</th></tr>
+  <tr><td>⚽ Más puntos que mi plantilla</td><td>≥ +0,5 pts/partido sobre mi peor jugador de esa posición y no baja más de 50.000 €/día</td></tr>
+  <tr><td>💰 Para hacer dinero</td><td>Sube ≥ 50.000 €/día; se calcula en cuántos días recupera el sobreprecio al ritmo actual</td></tr>
+  <tr><td>🛒 Mercado de hoy</td><td>Veredicto para cada jugador en venta: buena compra, revisar estado, mejora pero baja de precio, no aporta</td></tr>
+  <tr><td>⏰ Desbloqueos</td><td>Oportunidades cuya cláusula se desbloquea en menos de 72 horas</td></tr>
+</table>
+<p>Es una <b>regla de decisión explicable</b>, no un modelo entrenado: cada recomendación indica a quién sustituye, cuánto mejora y cuánto sube al día.</p>
+
+<h2>5. Resultados (ejemplo real, 22/10/2026)</h2>
+<p>Resumen generado por el notebook con datos en directo. Los nombres de los otros managers se han anonimizado.</p>
+<table>
+  <tr><th></th><th>Jugador</th><th>Motivo</th></tr>
+  <tr><td>🛒 Mercado</td><td>Gabriel Jesus (DEL)</td><td>7,77 pts/partido; mejora a mi peor delantero en +3,62; sube 90.000 €/día</td></tr>
+  <tr><td>🛒 Mercado</td><td>Barrios (MED)</td><td>5,37 pts/partido; mejora a mi peor medio en +1,36; sube 50.000 €/día</td></tr>
+  <tr><td>⚽ Puntos</td><td>Camello (DEL) · Rival A</td><td>9,29 pts/partido (+5,14); cláusula disponible el 26/10</td></tr>
+  <tr><td>⚽ Puntos</td><td>Baena (MED/DEL) · Rival B</td><td>8,09 pts/partido (+4,08); cláusula disponible el 03/11</td></tr>
+  <tr><td>💰 Dinero</td><td>Diomande (DEL) · Rival C</td><td>+220.000 €/día; recupera el sobreprecio en ~10,6 días</td></tr>
+  <tr><td>💰 Dinero</td><td>Ez Abde (DEL/MED) · Rival D</td><td>+150.000 €/día; recupera el sobreprecio en ~10,4 días</td></tr>
+</table>
+<p>De más de 500 jugadores del catálogo y unos 130 en plantillas rivales, el notebook reduce la decisión a una decena de nombres justificados.</p>
+
+<h2 class="salto">6. Instrucciones de ejecución (para cualquier usuario)</h2>
+<p>El proyecto funciona con la cuenta de quien lo ejecute: basta con su propia sesión de Biwenger. Código: <code>github.com/guensovt/biwenger-fichajes</code> (ver README).</p>
+
+<h3>6.1 Instalación</h3>
+<pre>git clone https://github.com/guensovt/biwenger-fichajes.git
+cd biwenger-fichajes
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS / Linux
+pip install -r requirements.txt</pre>
+<p>Requisitos: Python 3, VS Code con la extensión Jupyter (o Jupyter Lab) y <code>curl</code>, incluido en Windows 10/11, macOS y casi todos los Linux.</p>
+
+<h3>6.2 Obtener tu <code>Authorization</code> (solo la primera vez)</h3>
+<ol class="pasos">
+  <li>Inicia sesión en <b>biwenger.as.com</b>.</li>
+  <li>Pulsa <b>F12</b> y ve a la pestaña <b>Red / Network</b>.</li>
+  <li>Recarga (<b>F5</b>) y filtra por <code>api</code>.</li>
+  <li>Selecciona una petición a <code>biwenger.as.com/api/v2/…</code> (por ejemplo <code>account</code>).</li>
+  <li>En <b>Request Headers</b>, haz clic derecho sobre <code>Authorization</code> → <b>Copiar valor</b> (<code>Bearer eyJ…</code>).</li>
+</ol>
+<div class="peligro"><b>Importante:</b> ese valor da acceso a tu cuenta mientras la sesión esté activa. No lo compartas, no lo escribas en el código y no lo subas a GitHub.</div>
+
+<h3>6.3 Ejecutar</h3>
+<ol class="pasos">
+  <li>Abre <code>analisis_biwenger.ipynb</code>, elige el kernel de <code>.venv</code> y pulsa <b>Ejecutar todo</b>.</li>
+  <li>La primera vez aparece una casilla oculta: pega el <code>Authorization</code>. Se guarda cifrado y las siguientes ejecuciones no lo piden.</li>
+  <li>Consulta los resultados en la sección <b>4. Resultados</b> (enlace en el índice inicial).</li>
+</ol>
+<table>
+  <tr><th>Opción</th><th>Uso</th></tr>
+  <tr><td><code>liga = None</code></td><td>Si tienes varias ligas, escribe su nombre o ID</td></tr>
+  <tr><td><code>modo_datos = "local"</code></td><td>Repite el análisis con la última captura, sin conexión</td></tr>
+  <tr><td><code>renovar_autorizacion = True</code></td><td>Si aparece HTTP 401 (sesión caducada): pega un token nuevo y vuelve a <code>False</code></td></tr>
+  <tr><td>Parámetros (sección 3.1)</td><td>Pesos del rating, margen de mejora, subida mínima, número de jugadores por lista</td></tr>
+</table>
+
+<h2>7. Limitaciones y siguientes pasos</h2>
+<ul>
+  <li>La API <b>no es oficial</b>: puede cambiar sin aviso.</li>
+  <li>No se conocen minutos, titularidades ni alineaciones; el estado del jugador (lesión, sanción) solo genera un aviso.</li>
+  <li>Los parámetros son heurísticos y <b>no están calibrados</b>. Como siguiente paso, se guardarán las predicciones de cada captura y se compararán con los puntos reales (error MAE frente a una media simple) para ajustar los pesos.</li>
+  <li>La subida diaria puede cambiar mañana: recuperar el sobreprecio «al ritmo de hoy» no está garantizado.</li>
+</ul>
+
+<h2>8. Conclusión</h2>
+<p>El proyecto aplica los contenidos del módulo a un caso real: <b>conexión a una API</b> autenticada, extracción robusta y segura, transformación y validación de JSON, y un análisis que convierte cientos de registros en una decisión concreta. Al detectar la liga a partir de la sesión y guardar el token cifrado, cualquier usuario de Biwenger puede usarlo con su propia cuenta.</p>
+
+<div class="pie">Proyecto educativo sin relación con Biwenger ni con AS. Licencia MIT. Gonzalo Velasco Toronjo, 2026.</div>
+</body>
+</html>

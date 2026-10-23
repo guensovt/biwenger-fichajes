@@ -1,0 +1,13 @@
+# Entorno y cachés
+.venv/
+venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# Datos privados de tu liga (saldo, plantillas y nombres de otros managers)
+capturas/
+/*.json
+
+# Sesión: nunca debe estar en el proyecto, pero por si acaso
+*.dpapi
+.env

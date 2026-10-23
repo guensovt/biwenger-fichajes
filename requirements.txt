@@ -1,0 +1,3 @@
+ipykernel>=7.4,<8
+tzdata>=2025.2
+keyring>=25; sys_platform != "win32"
